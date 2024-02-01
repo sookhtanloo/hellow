@@ -1,51 +1,49 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import streamlit as st
-from streamlit.logger import get_logger
+import numpy as np
+import joblib
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from lightgbm import LGBMClassifier
 
-LOGGER = get_logger(__name__)
+# Create a file upload button
+uploaded_file = st.file_uploader("Choose a file to upload:", type="pkl")
 
+# If a file is uploaded, load the ML model
+if uploaded_file is not None:
+    try:
+        # Load the ML model directly from the BytesIO object using joblib
+        model = joblib.load(uploaded_file)
 
-def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
-    )
+        # Check if the model is an LGBMClassifier model
+        if not isinstance(model, LGBMClassifier):
+            raise TypeError("The uploaded model is not an LGBMClassifier model.")
 
-    st.write("# Welcome to Streamlit! 👋")
+        # Get the names of the variables in the dataset
+        var_names = model.feature_name_
 
-    st.sidebar.success("Select a demo above.")
+        # Create a box to show model information
+        st.header("Model Information")
+        st.write(f"Model Parameters: {model.get_params()}")
+        st.write(f"Features: {var_names}")
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+        # Create sliders for each selected variable
+        new_data = {}
+        for var_name in var_names:
+            point_val = st.slider(f'Select a point for {var_name} within the range:', 0, 10, 10)
+            new_data[var_name] = point_val
 
+        # Create a button to predict the target
+        if st.button('Predict'):
+            # Create the new dataset with the selected variables and their values
+            new_df = pd.DataFrame([new_data], index=[0])  # Specify an index
 
-if __name__ == "__main__":
-    run()
+            # Predict the target
+            prediction = model.predict(new_df)
+
+            # Display the prediction
+            st.write(f"Prediction: {prediction[0]}")
+
+    except Exception as e:
+        st.write(f"Error loading the model: {e}")
+else:
+    st.write("Please upload an ML model file (.pkl)")
